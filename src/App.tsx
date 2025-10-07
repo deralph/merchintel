@@ -9,7 +9,15 @@ import CampaignDashboard from "./pages/CampaignDashboard";
 import CreateCampaign from "./pages/CreateCampaign";
 import ClientLogin from "./pages/ClientLogin";
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientCampaignsList from "./pages/ClientCampaignsList";
+import ClientUsers from "./pages/ClientUsers";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminCampaignDetail from "./pages/AdminCampaignDetail";
+import AdminClientsList from "./pages/AdminClientsList";
+import AdminClientDetail from "./pages/AdminClientDetail";
+import AdminCampaignsList from "./pages/AdminCampaignsList";
+import AdminTagsRegistry from "./pages/AdminTagsRegistry";
+import AdminRevenue from "./pages/AdminRevenue";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,22 +38,18 @@ const App = () => (
           <Route path="/client/login" element={<ClientLogin />} />
           <Route path="/client/dashboard" element={<ClientDashboard />} />
           <Route path="/client/campaigns/create" element={<CreateCampaign />} />
-          <Route path="/client/campaigns" element={<div>Client Campaigns List - TODO</div>} />
+          <Route path="/client/campaigns" element={<ClientCampaignsList />} />
           <Route path="/client/campaigns/:campaignId" element={<CampaignDashboard />} />
-          <Route path="/client/users" element={<div>Client Users List - TODO</div>} />
+          <Route path="/client/users" element={<ClientUsers />} />
           
           {/* Admin Portal Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/clients" element={<div>Admin Clients List - TODO</div>} />
-          <Route path="/admin/clients/:clientId" element={<div>Admin Client Detail - TODO</div>} />
-          <Route path="/admin/campaigns" element={<div>Admin Campaigns List - TODO</div>} />
-          <Route path="/admin/campaigns/:campaignId" element={<CampaignDashboard />} />
-          <Route path="/admin/tags" element={<div>Admin Tags Registry - TODO</div>} />
-          <Route path="/admin/revenue" element={<div>Admin Revenue Dashboard - TODO</div>} />
-          
-          {/* Legacy/Compatibility Routes */}
-          <Route path="/dashboard/:campaignId" element={<CampaignDashboard />} />
-          <Route path="/campaigns/create" element={<CreateCampaign />} />
+          <Route path="/admin/clients" element={<AdminClientsList />} />
+          <Route path="/admin/clients/:clientId" element={<AdminClientDetail />} />
+          <Route path="/admin/campaigns" element={<AdminCampaignsList />} />
+          <Route path="/admin/campaigns/:campaignId" element={<AdminCampaignDetail />} />
+          <Route path="/admin/tags" element={<AdminTagsRegistry />} />
+          <Route path="/admin/revenue" element={<AdminRevenue />} />
           
           {/* 404 Catch-all */}
           <Route path="*" element={<NotFound />} />
