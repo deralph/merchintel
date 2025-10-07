@@ -1,30 +1,75 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircle2, MapPin, Mail } from "lucide-react";
+import { CheckCircle2, MapPin, Mail, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const ScanGateway = () => {
-  const { tag_uid } = useParams();
+  const { clientSlug, tag_uid } = useParams();
   const [showConsent, setShowConsent] = useState(true);
   const [email, setEmail] = useState("");
   const [locationConsent, setLocationConsent] = useState(false);
   const [emailConsent, setEmailConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [tagData, setTagData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isClaimed, setIsClaimed] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mock campaign data
-  const campaign = {
-    name: "Summer Festival 2025",
-    brand: "Acme Events",
-    logo: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop",
-    description: "Thanks for checking out our merch! Scan to unlock exclusive content.",
-    destinationUrl: "https://acmeevents.com/summer-festival",
-    primaryColor: "hsl(233, 47%, 51%)",
-  };
+  // Fetch tag data and start heartbeat
+  useEffect(() => {
+    const fetchTagData = async () => {
+      try {
+        // Mock API call - replace with: GET /api/v1/tags/${clientSlug}/${tag_uid}
+        const mockData = {
+          campaign_name: "Summer Festival 2025",
+          brand: "Acme Events",
+          logo: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop",
+          material: "Cap",
+          description: "Thanks for checking out our merch! Scan to unlock exclusive content.",
+          redirect_url: "https://acmeevents.com/summer-festival",
+          is_claimed: false,
+          claimed_by: null,
+        };
+
+        setTagData(mockData);
+        setIsClaimed(mockData.is_claimed);
+        setLoading(false);
+
+        // Start session and heartbeat tracking
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionIdRef.current = sessionId;
+
+        // Post initial session start
+        console.log(`Starting session: ${sessionId}`);
+
+        // Start heartbeat every 10 seconds
+        heartbeatIntervalRef.current = setInterval(() => {
+          // Mock heartbeat POST - replace with: POST /api/v1/sessions/${sessionId}/heartbeat
+          console.log(`Heartbeat for session: ${sessionId}`);
+        }, 10000);
+
+      } catch (err) {
+        setError("Tag not found or invalid");
+        setLoading(false);
+      }
+    };
+
+    fetchTagData();
+
+    // Cleanup heartbeat on unmount
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [clientSlug, tag_uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +79,18 @@ const ScanGateway = () => {
       return;
     }
 
-    // Mock scan event POST
+    // Stop heartbeat
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    // Mock scan event POST - replace with: POST /api/v1/events/scan
     const scanData = {
       tag_uid,
+      client_slug: clientSlug,
       email: emailConsent ? email : null,
       location_consent: locationConsent,
+      session_id: sessionIdRef.current,
       timestamp: new Date().toISOString(),
       // In production, would capture coarse geohash here
     };
@@ -50,9 +102,52 @@ const ScanGateway = () => {
 
     // Redirect after 2 seconds
     setTimeout(() => {
-      window.location.href = campaign.destinationUrl;
+      window.location.href = tagData.redirect_url;
     }, 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-card-foreground mb-2">Tag Not Found</h2>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <a href="/" className="text-primary hover:text-primary-hover underline">
+            Return to Home
+          </a>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isClaimed) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-accent mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-card-foreground mb-2">Already Claimed</h2>
+          <p className="text-muted-foreground mb-6">
+            This item has already found its home! If you think this is an error, please contact support.
+          </p>
+          <a href="/" className="text-primary hover:text-primary-hover underline">
+            Scan Another Item
+          </a>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
@@ -60,17 +155,18 @@ const ScanGateway = () => {
         {/* Campaign Branding */}
         <div className="mb-6">
           <img 
-            src={campaign.logo} 
-            alt={campaign.brand}
+            src={tagData.logo} 
+            alt={tagData.brand}
             className="w-20 h-20 rounded-full mx-auto mb-4 object-cover ring-4 ring-primary/20"
           />
-          <h1 className="text-2xl font-bold text-card-foreground mb-2">{campaign.brand}</h1>
-          <p className="text-muted-foreground">{campaign.name}</p>
+          <h1 className="text-2xl font-bold text-card-foreground mb-2">{tagData.brand}</h1>
+          <p className="text-muted-foreground">{tagData.campaign_name}</p>
+          <p className="text-xs text-muted-foreground mt-1">Material: {tagData.material}</p>
         </div>
 
         {!submitted ? (
           <>
-            <p className="text-card-foreground mb-6">{campaign.description}</p>
+            <p className="text-card-foreground mb-6">{tagData.description}</p>
             <Button
               onClick={() => setShowConsent(true)}
               size="lg"
@@ -80,6 +176,9 @@ const ScanGateway = () => {
             </Button>
             <p className="text-xs text-muted-foreground mt-4">
               Tag ID: {tag_uid}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              💡 Tip: Use the same email for all your merch to track your collection!
             </p>
           </>
         ) : (
