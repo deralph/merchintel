@@ -1,7 +1,9 @@
+import { Router } from "express";
 import { getLandingContent } from "../controllers/contentController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const registerContentRoutes = (app) => {
-  app.get("/api/content/landing", getLandingContent);
-};
+const router = Router();
 
-export default registerContentRoutes;
+router.get("/landing", asyncHandler(getLandingContent));
+
+export default router;

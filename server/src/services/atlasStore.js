@@ -1,5 +1,7 @@
 import env from "../config/env.js";
-import { createSessionToken, minutesFromNow } from "../utils/token.js";
+import { createTagEntity } from "../models/tagModel.js";
+import { createSessionEntity, updateSessionEntity } from "../models/sessionModel.js";
+import { createScanEventEntity } from "../models/scanEventModel.js";
 
 const buildHeaders = () => ({
   "Content-Type": "application/json",
@@ -34,75 +36,78 @@ const callDataApi = async (action, payload) => {
   return response.json();
 };
 
+const listTags = async () => {
+  const result = await callDataApi("find", {
+    collection: "tags",
+    filter: {},
+  });
+  return result.documents ?? [];
+};
+
+const getTagBySlug = async (slug) => {
+  const result = await callDataApi("findOne", {
+    collection: "tags",
+    filter: { slug },
+  });
+  return result.document ?? null;
+};
+
+const findSessionByToken = async (token) => {
+  const result = await callDataApi("findOne", {
+    collection: "scan_sessions",
+    filter: { token },
+  });
+  return result.document ?? null;
+};
+
 const atlasStore = {
   createTag: async (tag) => {
-    const result = await callDataApi("insertOne", {
+    const entity = createTagEntity(tag);
+    await callDataApi("insertOne", {
       collection: "tags",
-      document: { ...tag, createdAt: new Date(), updatedAt: new Date() },
+      document: entity,
     });
-    return { ...tag, id: result.insertedId };
+    return entity;
   },
 
-  listTags: async () => {
-    const result = await callDataApi("find", {
-      collection: "tags",
-      filter: {},
-    });
-    return result.documents ?? [];
-  },
+  listTags,
 
-  getTagBySlug: async (slug) => {
-    const result = await callDataApi("findOne", {
-      collection: "tags",
-      filter: { slug },
-    });
-    return result.document ?? null;
-  },
+  getTagBySlug,
 
   issueScanSession: async (tag) => {
-    const session = {
-      token: createSessionToken(),
-      tagSlug: tag.slug,
-      tagId: tag.id ?? tag._id,
-      status: "issued",
-      createdAt: new Date(),
-      expiresAt: minutesFromNow(env.sessionTtlMinutes),
-    };
+    const session = createSessionEntity(tag, env.sessionTtlMinutes);
     await callDataApi("insertOne", {
       collection: "scan_sessions",
       document: session,
     });
-    return { ...session, expiresAt: session.expiresAt.toISOString(), createdAt: session.createdAt.toISOString() };
+    return session;
   },
 
-  findSessionByToken: async (token) => {
-    const result = await callDataApi("findOne", {
-      collection: "scan_sessions",
-      filter: { token },
-    });
-    if (!result.document) {
-      return null;
-    }
-    return {
-      ...result.document,
-      expiresAt: result.document.expiresAt ? new Date(result.document.expiresAt).toISOString() : null,
-      createdAt: result.document.createdAt ? new Date(result.document.createdAt).toISOString() : null,
-    };
-  },
+  findSessionByToken,
 
   updateSession: async (token, update) => {
+    const existing = await findSessionByToken(token);
+    if (!existing) {
+      return null;
+    }
+    const next = updateSessionEntity(existing, update);
     await callDataApi("updateOne", {
       collection: "scan_sessions",
       filter: { token },
       update: {
-        $set: { ...update, updatedAt: new Date() },
+        $set: {
+          status: next.status,
+          activatedAt: next.activatedAt ?? null,
+          completedAt: next.completedAt ?? null,
+          updatedAt: next.updatedAt,
+        },
       },
     });
-    return atlasStore.findSessionByToken(token);
+    return next;
   },
 
   recordScanEvent: async (event) => {
-    const document = { ...event, createdAt: new Date() };
+    const document = createScanEventEntity(event);
     await callDataApi("insertOne", {
       collection: "scan_events",
       document,

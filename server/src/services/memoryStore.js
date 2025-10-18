@@ -1,4 +1,6 @@
-import { createSessionToken, minutesFromNow } from "../utils/token.js";
+import { createTagEntity } from "../models/tagModel.js";
+import { createSessionEntity, updateSessionEntity } from "../models/sessionModel.js";
+import { createScanEventEntity } from "../models/scanEventModel.js";
 
 const createMemoryStore = (options = {}) => {
   const sessionTtlMinutes = options.sessionTtlMinutes ?? 5;
@@ -7,51 +9,22 @@ const createMemoryStore = (options = {}) => {
   const events = [];
 
   const ensureTag = (tag) => {
-    if (!tag?.slug) {
-      return;
-    }
-    const stored = tags.get(tag.slug);
-    if (!stored) {
-      const now = new Date().toISOString();
-      tags.set(tag.slug, {
-        id: tag.id ?? `tag_${tags.size + 1}`,
-        slug: tag.slug,
-        label: tag.label ?? tag.slug,
-        brand: tag.brand ?? tag.label ?? tag.slug,
-        description: tag.description ?? "",
-        redirectUrl: tag.redirectUrl ?? "",
-        heroImage: tag.heroImage ?? null,
-        accentColor: tag.accentColor ?? "#7c3aed",
-        campaign: tag.campaign ?? null,
-        material: tag.material ?? null,
-        logo: tag.logo ?? tag.heroImage ?? null,
-        experience: tag.experience ?? null,
-        createdAt: now,
-        updatedAt: now,
-      });
+    try {
+      const entity = createTagEntity(tag);
+      if (!tags.has(entity.slug)) {
+        tags.set(entity.slug, entity);
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV !== "test") {
+        console.warn("[memory-store] failed to seed tag", error);
+      }
     }
   };
 
   const createTag = async (tag) => {
-    const now = new Date().toISOString();
-    const stored = {
-      id: tag.id ?? `tag_${tags.size + 1}`,
-      slug: tag.slug,
-      label: tag.label ?? tag.slug,
-      brand: tag.brand ?? tag.label ?? tag.slug,
-      description: tag.description ?? "",
-      redirectUrl: tag.redirectUrl ?? "",
-      heroImage: tag.heroImage ?? null,
-      accentColor: tag.accentColor ?? "#7c3aed",
-      campaign: tag.campaign ?? null,
-      material: tag.material ?? null,
-      logo: tag.logo ?? tag.heroImage ?? null,
-      experience: tag.experience ?? null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    tags.set(stored.slug, stored);
-    return stored;
+    const entity = createTagEntity(tag);
+    tags.set(entity.slug, entity);
+    return entity;
   };
 
   const listTags = async () => Array.from(tags.values());
@@ -59,16 +32,8 @@ const createMemoryStore = (options = {}) => {
   const getTagBySlug = async (slug) => tags.get(slug) ?? null;
 
   const issueScanSession = async (tag) => {
-    const token = createSessionToken();
-    const session = {
-      token,
-      tagSlug: tag.slug,
-      tagId: tag.id,
-      status: "issued",
-      createdAt: new Date().toISOString(),
-      expiresAt: minutesFromNow(sessionTtlMinutes).toISOString(),
-    };
-    sessions.set(token, session);
+    const session = createSessionEntity(tag, sessionTtlMinutes);
+    sessions.set(session.token, session);
     return session;
   };
 
@@ -79,17 +44,13 @@ const createMemoryStore = (options = {}) => {
     if (!session) {
       return null;
     }
-    const next = { ...session, ...update, updatedAt: new Date().toISOString() };
+    const next = updateSessionEntity(session, update);
     sessions.set(token, next);
     return next;
   };
 
   const recordScanEvent = async (event) => {
-    const enriched = {
-      id: `event_${events.length + 1}`,
-      ...event,
-      createdAt: new Date().toISOString(),
-    };
+    const enriched = createScanEventEntity(event, events.length + 1);
     events.push(enriched);
     return enriched;
   };

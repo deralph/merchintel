@@ -1,35 +1,29 @@
-import express, { json } from "../mini-express.js";
+import express from "express";
+import cors from "cors";
 import env from "./config/env.js";
-import registerTagRoutes from "./routes/tagRoutes.js";
-import registerSessionRoutes from "./routes/sessionRoutes.js";
-import registerContentRoutes from "./routes/contentRoutes.js";
-import registerClientRoutes from "./routes/clientRoutes.js";
-import registerAdminRoutes from "./routes/adminRoutes.js";
+import apiRouter from "./routes/index.js";
+import notFound from "./middleware/notFound.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", env.clientUrl);
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-  next();
-});
+app.use(
+  cors({
+    origin: env.clientUrl,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
-app.use(json());
+app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-registerTagRoutes(app);
-registerSessionRoutes(app);
-registerContentRoutes(app);
-registerClientRoutes(app);
-registerAdminRoutes(app);
+app.use("/api", apiRouter);
+
+app.use(notFound);
+app.use(errorHandler);
 
 export default app;
