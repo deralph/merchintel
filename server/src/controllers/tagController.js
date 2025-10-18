@@ -19,8 +19,17 @@ export const createTag = async (req, res) => {
     return;
   }
 
-  const tag = await store.createTag(result.data);
-  res.status(201).json({ tag: mapTagResponse(enrichTag(tag)) });
+  try {
+    const tag = await store.createTag(result.data);
+    res.status(201).json({ tag: mapTagResponse(enrichTag(tag)) });
+  } catch (error) {
+    if (error?.code === 11000) {
+      res.status(409).json({ message: "A tag with this slug already exists" });
+      return;
+    }
+
+    throw error;
+  }
 };
 
 export const getTag = async (req, res) => {

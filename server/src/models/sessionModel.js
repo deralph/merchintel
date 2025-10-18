@@ -1,47 +1,99 @@
-import { z } from "zod";
-import { createSessionToken, minutesFromNow } from "../utils/token.js";
+import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 
-const sessionStatusSchema = z.enum(["issued", "active", "completed", "expired"]);
+const sessionStatuses = ["issued", "active", "completed"];
 
-export const sessionSchema = z.object({
-  token: z.string(),
-  tagSlug: z.string(),
-  tagId: z.string().optional(),
-  status: sessionStatusSchema,
-  createdAt: z.string(),
-  expiresAt: z.string(),
-  activatedAt: z.string().optional(),
-  completedAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-});
+export const createSessionEntity = (tag, ttlMinutes) => {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
-export const createSessionEntity = (tag, sessionTtlMinutes) => {
-  const session = {
-    token: createSessionToken(),
-    tagSlug: tag.slug,
-    tagId: tag.id ?? tag._id,
+  return {
+    token: randomUUID(),
+    tagSlug: tag.slug ?? tag.id ?? tag._id,
     status: "issued",
-    createdAt: new Date().toISOString(),
-    expiresAt: minutesFromNow(sessionTtlMinutes).toISOString(),
+    issuedAt: now,
+    activatedAt: null,
+    completedAt: null,
+    expiresAt,
+    createdAt: now,
+    updatedAt: now,
   };
-
-  return sessionSchema.parse(session);
 };
 
-export const updateSessionEntity = (session, update) => {
-  const nextSession = {
-    ...session,
-    ...update,
-    updatedAt: new Date().toISOString(),
+export const updateSessionEntity = (session, update) => ({
+  ...session,
+  ...normalizeSessionUpdate(update),
+});
+
+export const normalizeSessionUpdate = (update = {}) => {
+  const normalized = {
+    updatedAt: new Date(),
   };
 
-  return sessionSchema.parse(nextSession);
+  if (update.status && sessionStatuses.includes(update.status)) {
+    normalized.status = update.status;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(update, "activatedAt")) {
+    normalized.activatedAt = update.activatedAt ? new Date(update.activatedAt) : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(update, "completedAt")) {
+    normalized.completedAt = update.completedAt ? new Date(update.completedAt) : null;
+  }
+
+  return normalized;
 };
 
 export const isSessionExpired = (session) => {
   if (!session?.expiresAt) {
-    return false;
+    return true;
   }
 
-  return new Date(session.expiresAt).getTime() < Date.now();
+  const expiresAt = session.expiresAt instanceof Date ? session.expiresAt : new Date(session.expiresAt);
+  return expiresAt.getTime() <= Date.now();
 };
+
+const ScanSessionSchema = new mongoose.Schema(
+  {
+    token: {
+      type: String,
+      unique: true,
+      required: true,
+      index: true,
+    },
+    tagSlug: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: sessionStatuses,
+      default: "issued",
+    },
+    issuedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    activatedAt: {
+      type: Date,
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+const ScanSession = mongoose.models.ScanSession ?? mongoose.model("ScanSession", ScanSessionSchema);
+
+export default ScanSession;

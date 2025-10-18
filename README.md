@@ -52,7 +52,7 @@ listens on [http://localhost:4000](http://localhost:4000) and exposes REST endpo
 Each package includes its own `.env.example` file:
 
 - `client/.env.example` – configure `VITE_API_BASE_URL` for front-end requests
-- `server/.env.example` – configure API settings such as `PORT`, `CLIENT_URL`, `DATA_BACKEND`, and Atlas credentials
+- `server/.env.example` – configure API settings such as `PORT`, `CLIENT_URL`, `DATA_BACKEND`, and `MONGODB_URI`
 
 Copy the appropriate file to `.env` within each package and adjust the values for your environment.
 
@@ -65,8 +65,9 @@ Copy the appropriate file to `.env` within each package and adjust the values fo
 
 ## Server structure
 
-The server uses Express with dedicated folders for controllers, middleware, routes, models, and schemas. The in-memory store is
-ready out of the box, while the Atlas store can be enabled by providing MongoDB Data API credentials.
+The server uses Express with dedicated folders for controllers, middleware, routes, models, and schemas. It ships with
+Mongoose-based models for tags, scan sessions, and events; provide a `MONGODB_URI` to persist data in MongoDB or set
+`DATA_BACKEND=memory` to work with the seeded in-memory store during development.
 
 ## Client scripts
 

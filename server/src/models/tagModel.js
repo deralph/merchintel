@@ -1,9 +1,10 @@
+import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import { createTagSchema } from "../schemas/tagSchemas.js";
 
 export const createTagEntity = (input) => {
   const data = createTagSchema.parse(input);
-  const now = new Date().toISOString();
+  const now = new Date();
 
   return {
     id: input.id ?? `tag_${randomUUID()}`,
@@ -18,8 +19,8 @@ export const createTagEntity = (input) => {
     material: data.material ?? null,
     logo: data.logo ?? data.heroImage ?? null,
     experience: data.experience ?? null,
-    createdAt: input.createdAt ?? now,
-    updatedAt: input.updatedAt ?? now,
+    createdAt: input.createdAt ? new Date(input.createdAt) : now,
+    updatedAt: input.updatedAt ? new Date(input.updatedAt) : now,
   };
 };
 
@@ -36,3 +37,73 @@ export const mapTagToResponse = (tag) => ({
   material: tag.material ?? tag.experience?.material ?? "",
   logo: tag.logo ?? tag.heroImage ?? tag.experience?.logo ?? null,
 });
+
+const TagSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      default: () => `tag_${randomUUID()}`,
+      unique: true,
+    },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+      default: function defaultLabel() {
+        return this.slug;
+      },
+    },
+    brand: {
+      type: String,
+      trim: true,
+      default: function defaultBrand() {
+        return this.label;
+      },
+    },
+    description: {
+      type: String,
+      default: "",
+    },
+    redirectUrl: {
+      type: String,
+      required: true,
+    },
+    heroImage: {
+      type: String,
+      default: null,
+    },
+    accentColor: {
+      type: String,
+      default: "#7c3aed",
+    },
+    campaign: {
+      type: String,
+      default: null,
+    },
+    material: {
+      type: String,
+      default: null,
+    },
+    logo: {
+      type: String,
+      default: null,
+    },
+    experience: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+const Tag = mongoose.models.Tag ?? mongoose.model("Tag", TagSchema);
+
+export default Tag;
