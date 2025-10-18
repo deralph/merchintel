@@ -1,13 +1,24 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { BarChart3, Users, Clock, Zap } from "lucide-react";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
+import { api } from "@/lib/api";
+import { getIconByName } from "@/lib/icon-map";
+import { toneBackgroundStyle, toneTextClass } from "@/lib/style-maps";
 
 const ClientDashboard = () => {
-  const kpis = [
-    { label: "Total Scans", value: "12,847", change: "+23%", icon: Zap, color: "text-primary" },
-    { label: "Unique Users", value: "8,392", change: "+18%", icon: Users, color: "text-accent" },
-    { label: "Active Campaigns", value: "5", change: "+2", icon: BarChart3, color: "text-success" },
-    { label: "Avg. Dwell Time", value: "2m 34s", change: "-8%", icon: Clock, color: "text-muted-foreground" },
-  ];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["client-dashboard"],
+    queryFn: api.getClientDashboard,
+  });
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading client dashboard" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load client dashboard." onRetry={() => refetch()} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -27,31 +38,41 @@ const ClientDashboard = () => {
         <h2 className="text-3xl font-bold text-card-foreground mb-6">Dashboard Overview</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {kpis.map((kpi) => (
-            <Card key={kpi.label} className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <kpi.icon className={`w-8 h-8 ${kpi.color}`} />
-                <span className={`text-sm font-medium ${kpi.change.startsWith('+') ? 'text-success' : 'text-muted-foreground'}`}>
-                  {kpi.change}
-                </span>
-              </div>
-              <div className="text-3xl font-bold text-card-foreground mb-1">{kpi.value}</div>
-              <div className="text-sm text-muted-foreground">{kpi.label}</div>
-            </Card>
-          ))}
+          {data.kpis.map((kpi) => {
+            const Icon = getIconByName(kpi.icon);
+            const changeClass = kpi.change?.startsWith("-") ? "text-warning" : "text-success";
+
+            return (
+              <Card key={kpi.id} className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={toneBackgroundStyle(kpi.tone)}
+                  >
+                    <Icon className={`w-5 h-5 ${toneTextClass[kpi.tone]}`} />
+                  </div>
+                  <span className={`text-sm font-medium ${changeClass}`}>{kpi.change}</span>
+                </div>
+                <div className="text-3xl font-bold text-card-foreground mb-1">{kpi.value}</div>
+                <div className="text-sm text-muted-foreground">{kpi.label}</div>
+              </Card>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-card-foreground mb-4">Recent Activity</h3>
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              {data.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-card-foreground">Campaign scan</p>
-                    <p className="text-xs text-muted-foreground">2 minutes ago</p>
+                    <p className="text-sm font-medium text-card-foreground">{activity.event}</p>
+                    <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                   </div>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">New</span>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded capitalize">
+                    {activity.status}
+                  </span>
                 </div>
               ))}
             </div>
@@ -60,20 +81,16 @@ const ClientDashboard = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-card-foreground mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <a 
-                href="/client/campaigns/create" 
-                className="block p-3 border border-border rounded-md hover:bg-muted transition-colors"
-              >
-                <p className="font-medium text-card-foreground">Create New Campaign</p>
-                <p className="text-xs text-muted-foreground">Set up tracking for new merch</p>
-              </a>
-              <a 
-                href="/client/campaigns" 
-                className="block p-3 border border-border rounded-md hover:bg-muted transition-colors"
-              >
-                <p className="font-medium text-card-foreground">View All Campaigns</p>
-                <p className="text-xs text-muted-foreground">Manage your active campaigns</p>
-              </a>
+              {data.quickActions.map((action) => (
+                <a
+                  key={action.href}
+                  href={action.href}
+                  className="block p-3 border border-border rounded-md hover:bg-muted transition-colors"
+                >
+                  <p className="font-medium text-card-foreground">{action.label}</p>
+                  <p className="text-xs text-muted-foreground">{action.description}</p>
+                </a>
+              ))}
             </div>
           </Card>
         </div>

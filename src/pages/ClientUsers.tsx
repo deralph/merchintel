@@ -1,32 +1,46 @@
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { Search, Download, Mail } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const ClientUsers = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["client-users"],
+    queryFn: api.getClientUsers,
+  });
 
-  // Mock user data
-  const users = [
-    { id: "usr-1", email: "user***@gmail.com", items: 5, lastActive: "2025-01-15", totalScans: 23, campaigns: ["Summer Festival", "Spring Launch"] },
-    { id: "usr-2", email: "mark***@yahoo.com", items: 3, lastActive: "2025-01-14", totalScans: 12, campaigns: ["Holiday Giveaway"] },
-    { id: "usr-3", email: "sarah***@outlook.com", items: 8, lastActive: "2025-01-16", totalScans: 47, campaigns: ["Summer Festival", "Conference Swag", "Spring Launch"] },
-    { id: "usr-4", email: "john***@gmail.com", items: 2, lastActive: "2025-01-10", totalScans: 8, campaigns: ["Beta User Rewards"] },
-    { id: "usr-5", email: "emily***@proton.me", items: 6, lastActive: "2025-01-15", totalScans: 34, campaigns: ["Summer Festival", "Spring Launch"] },
-    { id: "usr-6", email: "alex***@gmail.com", items: 4, lastActive: "2025-01-13", totalScans: 19, campaigns: ["Conference Swag"] },
-    { id: "usr-7", email: "chris***@icloud.com", items: 1, lastActive: "2025-01-12", totalScans: 3, campaigns: ["Holiday Giveaway"] },
-  ];
+  const filteredUsers = useMemo(() => {
+    if (!data?.users) {
+      return [];
+    }
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    return data.users.filter((user) => user.email.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [data, searchQuery]);
 
   const handleExportCSV = () => {
-    console.log("Exporting users to CSV...");
+    // Placeholder for actual export implementation
+    console.info("Exporting users to CSV...");
   };
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading user data" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load user analytics." onRetry={() => refetch()} />;
+  }
+
+  const totalItems = data.users.reduce((sum, user) => sum + user.items, 0);
+  const averageItems = data.users.length ? (totalItems / data.users.length).toFixed(1) : "0.0";
+  const totalScans = data.users.reduce((sum, user) => sum + user.totalScans, 0);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -51,19 +65,15 @@ const ClientUsers = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Users</div>
-            <div className="text-3xl font-bold text-card-foreground">{users.length}</div>
+            <div className="text-3xl font-bold text-card-foreground">{data.users.length}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Avg Items per User</div>
-            <div className="text-3xl font-bold text-accent">
-              {(users.reduce((sum, u) => sum + u.items, 0) / users.length).toFixed(1)}
-            </div>
+            <div className="text-3xl font-bold text-accent">{averageItems}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Interactions</div>
-            <div className="text-3xl font-bold text-primary">
-              {users.reduce((sum, u) => sum + u.totalScans, 0).toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-primary">{totalScans.toLocaleString()}</div>
           </Card>
         </div>
 
@@ -105,7 +115,7 @@ const ClientUsers = () => {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {user.campaigns.slice(0, 2).map((campaign, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
+                          <Badge key={`${user.id}-${campaign}-${i}`} variant="secondary" className="text-xs">
                             {campaign}
                           </Badge>
                         ))}
@@ -139,7 +149,8 @@ const ClientUsers = () => {
         {/* Info Box */}
         <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
           <p className="text-sm text-card-foreground">
-            <strong>Privacy Note:</strong> Email addresses are hashed for privacy. Users who opted in to communications will receive campaign updates via webhook integration.
+            <strong>Privacy Note:</strong> Email addresses are hashed for privacy. Users who opted in to communications will receive
+            campaign updates via webhook integration.
           </p>
         </div>
       </main>

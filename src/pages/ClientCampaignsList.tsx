@@ -1,86 +1,58 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { Plus, Search, Calendar, Tag } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const ClientCampaignsList = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Mock campaigns data
-  const campaigns = [
-    {
-      id: "camp-1",
-      name: "Summer Festival 2025",
-      status: "active",
-      startDate: "2025-06-01",
-      endDate: "2025-08-31",
-      totalScans: 12847,
-      uniqueUsers: 8392,
-      totalTags: 1500,
-      activeTags: 1423,
-    },
-    {
-      id: "camp-2",
-      name: "Spring Product Launch",
-      status: "active",
-      startDate: "2025-04-15",
-      endDate: "2025-06-30",
-      totalScans: 5632,
-      uniqueUsers: 3421,
-      totalTags: 800,
-      activeTags: 756,
-    },
-    {
-      id: "camp-3",
-      name: "Holiday Giveaway 2024",
-      status: "completed",
-      startDate: "2024-12-01",
-      endDate: "2024-12-31",
-      totalScans: 23145,
-      uniqueUsers: 15678,
-      totalTags: 2000,
-      activeTags: 0,
-    },
-    {
-      id: "camp-4",
-      name: "Conference Swag Bag",
-      status: "active",
-      startDate: "2025-03-01",
-      endDate: "2025-05-31",
-      totalScans: 1234,
-      uniqueUsers: 892,
-      totalTags: 500,
-      activeTags: 487,
-    },
-    {
-      id: "camp-5",
-      name: "Beta User Rewards",
-      status: "draft",
-      startDate: "2025-07-01",
-      endDate: "2025-09-30",
-      totalScans: 0,
-      uniqueUsers: 0,
-      totalTags: 300,
-      activeTags: 0,
-    },
-  ];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["client-campaigns"],
+    queryFn: api.getClientCampaigns,
+  });
 
-  const filteredCampaigns = campaigns.filter(campaign =>
-    campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCampaigns = useMemo(() => {
+    if (!data?.campaigns) {
+      return [];
+    }
+
+    return data.campaigns.filter((campaign) =>
+      campaign.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+  }, [data, searchQuery]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "default";
-      case "completed": return "secondary";
-      case "draft": return "outline";
-      default: return "secondary";
+      case "active":
+        return "default";
+      case "completed":
+        return "secondary";
+      case "draft":
+        return "outline";
+      default:
+        return "secondary";
     }
   };
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading campaigns" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load campaigns." onRetry={() => refetch()} />;
+  }
+
+  const totalTags = data.campaigns.reduce((sum, campaign) => sum + campaign.totalTags, 0);
+  const totalScans = data.campaigns.reduce((sum, campaign) => sum + campaign.totalScans, 0);
+  const activeCampaigns = data.campaigns.filter((campaign) => campaign.status === "active").length;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -92,10 +64,7 @@ const ClientCampaignsList = () => {
               <h1 className="text-2xl font-bold text-foreground">My Campaigns</h1>
               <p className="text-muted-foreground">Manage and track your merchandise campaigns</p>
             </div>
-            <Button 
-              onClick={() => navigate("/client/campaigns/create")}
-              className="bg-accent hover:bg-accent-hover"
-            >
+            <Button onClick={() => navigate("/client/campaigns/create")} className="bg-accent hover:bg-accent-hover">
               <Plus className="w-4 h-4 mr-2" />
               Create Campaign
             </Button>
@@ -104,6 +73,26 @@ const ClientCampaignsList = () => {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground mb-1">Total Campaigns</div>
+            <div className="text-3xl font-bold text-card-foreground">{data.campaigns.length}</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground mb-1">Active Campaigns</div>
+            <div className="text-3xl font-bold text-success">{activeCampaigns}</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground mb-1">Total Tags</div>
+            <div className="text-3xl font-bold text-accent">{totalTags.toLocaleString()}</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground mb-1">Total Scans</div>
+            <div className="text-3xl font-bold text-primary">{totalScans.toLocaleString()}</div>
+          </Card>
+        </div>
+
         {/* Search */}
         <div className="mb-6">
           <div className="relative max-w-md">
@@ -120,19 +109,15 @@ const ClientCampaignsList = () => {
         {/* Campaigns Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredCampaigns.map((campaign) => (
-            <Card 
-              key={campaign.id} 
+            <Card
+              key={campaign.id}
               className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => navigate(`/client/campaigns/${campaign.id}`)}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-card-foreground mb-2">
-                    {campaign.name}
-                  </h3>
-                  <Badge variant={getStatusColor(campaign.status)}>
-                    {campaign.status}
-                  </Badge>
+                  <h3 className="text-lg font-semibold text-card-foreground mb-2">{campaign.name}</h3>
+                  <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
                 </div>
               </div>
 
@@ -154,13 +139,15 @@ const ClientCampaignsList = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <Tag className="w-4 h-4" />
-                  <span>{campaign.activeTags}/{campaign.totalTags} active</span>
+                  <span>
+                    {campaign.activeTags}/{campaign.totalTags} active
+                  </span>
                 </div>
               </div>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full"
                 onClick={(e) => {
                   e.stopPropagation();

@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircle2, MapPin, Mail, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
+import type { TagExperienceResponse } from "@/types/api";
 
 const ScanGateway = () => {
   const { clientSlug, tag_uid } = useParams();
@@ -15,7 +17,7 @@ const ScanGateway = () => {
   const [locationConsent, setLocationConsent] = useState(false);
   const [emailConsent, setEmailConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [tagData, setTagData] = useState<any>(null);
+  const [tagData, setTagData] = useState<TagExperienceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isClaimed, setIsClaimed] = useState(false);
@@ -26,36 +28,31 @@ const ScanGateway = () => {
   useEffect(() => {
     const fetchTagData = async () => {
       try {
-        // Mock API call - replace with: GET /api/v1/tags/${clientSlug}/${tag_uid}
-        const mockData = {
-          campaign_name: "Summer Festival 2025",
-          brand: "Acme Events",
-          logo: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop",
-          material: "Cap",
-          description: "Thanks for checking out our merch! Scan to unlock exclusive content.",
-          redirect_url: "https://acmeevents.com/summer-festival",
-          is_claimed: false,
-          claimed_by: null,
-        };
+        if (!tag_uid) {
+          setError("Tag identifier missing");
+          setLoading(false);
+          return;
+        }
 
-        setTagData(mockData);
-        setIsClaimed(mockData.is_claimed);
+        const tagExperience = await api.getTagExperience(tag_uid, clientSlug);
+
+        setTagData(tagExperience);
+        setIsClaimed(tagExperience.is_claimed);
         setLoading(false);
 
-        // Start session and heartbeat tracking
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         sessionIdRef.current = sessionId;
+        await api.startSession({ sessionId, tagUid: tag_uid, clientSlug });
 
-        // Post initial session start
-        console.log(`Starting session: ${sessionId}`);
-
-        // Start heartbeat every 10 seconds
         heartbeatIntervalRef.current = setInterval(() => {
-          // Mock heartbeat POST - replace with: POST /api/v1/sessions/${sessionId}/heartbeat
-          console.log(`Heartbeat for session: ${sessionId}`);
+          if (sessionIdRef.current) {
+            api.heartbeat(sessionIdRef.current).catch(() => {
+              // best-effort heartbeat
+            });
+          }
         }, 10000);
-
       } catch (err) {
+        console.error(err);
         setError("Tag not found or invalid");
         setLoading(false);
       }
@@ -84,25 +81,29 @@ const ScanGateway = () => {
       clearInterval(heartbeatIntervalRef.current);
     }
 
-    // Mock scan event POST - replace with: POST /api/v1/events/scan
-    const scanData = {
-      tag_uid,
-      client_slug: clientSlug,
-      email: emailConsent ? email : null,
-      location_consent: locationConsent,
-      session_id: sessionIdRef.current,
-      timestamp: new Date().toISOString(),
-      // In production, would capture coarse geohash here
-    };
+    try {
+      await api.recordScanEvent({
+        tag_uid: tag_uid ?? "",
+        client_slug: clientSlug,
+        email: emailConsent ? email : null,
+        location_consent: locationConsent,
+        session_id: sessionIdRef.current,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (submissionError) {
+      toast.error("We couldn't record your scan. Please try again.");
+      console.error(submissionError);
+      return;
+    }
 
-    console.log("Scan event:", scanData);
-    
     setSubmitted(true);
     setShowConsent(false);
 
     // Redirect after 2 seconds
     setTimeout(() => {
-      window.location.href = tagData.redirect_url;
+      if (tagData) {
+        window.location.href = tagData.redirect_url;
+      }
     }, 2000);
   };
 
@@ -154,8 +155,8 @@ const ScanGateway = () => {
       <Card className="max-w-md w-full p-8 text-center animate-scale-in shadow-xl border border-border bg-card">
         {/* Campaign Branding */}
         <div className="mb-6">
-          <img 
-            src={tagData.logo} 
+          <img
+            src={tagData.logo}
             alt={tagData.brand}
             className="w-20 h-20 rounded-full mx-auto mb-4 object-cover ring-4 ring-primary/20"
           />

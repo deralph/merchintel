@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,9 +12,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { CalendarIcon, ArrowLeft, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { api } from "@/lib/api";
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const createCampaignMutation = useMutation({
+    mutationFn: api.createClientCampaign,
+    onSuccess: (campaign) => {
+      queryClient.invalidateQueries({ queryKey: ["client-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["client-dashboard"] });
+      toast.success("Campaign created successfully!");
+      navigate(`/client/campaigns/${campaign.id}`);
+    },
+    onError: () => {
+      toast.error("We couldn't create your campaign. Please try again.");
+    },
+  });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -25,9 +40,9 @@ const CreateCampaign = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!startDate || !endDate) {
       toast.error("Please select campaign dates");
@@ -39,15 +54,16 @@ const CreateCampaign = () => {
       return;
     }
 
-    // Mock campaign creation
-    console.log("Creating campaign:", {
-      ...formData,
-      startDate,
-      endDate,
+    await createCampaignMutation.mutateAsync({
+      name: formData.name,
+      description: formData.description,
+      destinationUrl: formData.destinationUrl,
+      tagQuantity: formData.tagQuantity,
+      startDate: format(startDate, "yyyy-MM-dd"),
+      endDate: format(endDate, "yyyy-MM-dd"),
+      locationConsent,
+      emailConsent,
     });
-
-    toast.success("Campaign created successfully!");
-    navigate("/dashboard/demo");
   };
 
   return (
@@ -249,19 +265,15 @@ const CreateCampaign = () => {
 
             {/* Submit */}
             <div className="pt-6 flex gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate(-1)}
-              >
+              <Button type="button" variant="outline" className="flex-1" onClick={() => navigate(-1)}>
                 Cancel
               </Button>
               <Button
                 type="submit"
                 className="flex-1 bg-accent hover:bg-accent-hover text-accent-foreground"
+                disabled={createCampaignMutation.isPending}
               >
-                Create Campaign
+                {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
               </Button>
             </div>
           </form>
