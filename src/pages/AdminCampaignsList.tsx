@@ -1,39 +1,60 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { Search, Filter } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const AdminCampaignsList = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Mock campaigns data
-  const campaigns = [
-    { id: "camp-1", name: "Summer Festival 2025", client: "Acme Corp", status: "active", tags: 1500, scans: 12847, created: "2025-01-01" },
-    { id: "camp-2", name: "Spring Launch", client: "Brand X Inc", status: "active", tags: 800, scans: 5632, created: "2024-12-15" },
-    { id: "camp-3", name: "Holiday Giveaway", client: "Festival Co", status: "completed", tags: 2000, scans: 23145, created: "2024-11-20" },
-    { id: "camp-4", name: "Conference Swag", client: "TechCon", status: "active", tags: 500, scans: 1234, created: "2025-01-10" },
-    { id: "camp-5", name: "Beta Rewards", client: "Startup Labs", status: "draft", tags: 300, scans: 0, created: "2025-01-05" },
-    { id: "camp-6", name: "Product Launch 2025", client: "Global Events", status: "active", tags: 2500, scans: 18945, created: "2024-10-15" },
-  ];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-campaigns"],
+    queryFn: api.getAdminCampaigns,
+  });
 
-  const filteredCampaigns = campaigns.filter(campaign =>
-    campaign.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    campaign.client.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCampaigns = useMemo(() => {
+    if (!data?.campaigns) {
+      return [];
+    }
+
+    return data.campaigns.filter((campaign) => {
+      const query = searchQuery.toLowerCase();
+      return campaign.name.toLowerCase().includes(query) || campaign.client.toLowerCase().includes(query);
+    });
+  }, [data, searchQuery]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "default";
-      case "completed": return "secondary";
-      case "draft": return "outline";
-      default: return "secondary";
+      case "active":
+        return "default";
+      case "completed":
+        return "secondary";
+      case "draft":
+        return "outline";
+      default:
+        return "secondary";
     }
   };
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading campaigns" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load campaigns." onRetry={() => refetch()} />;
+  }
+
+  const totalTags = data.campaigns.reduce((sum, campaign) => sum + campaign.totalTags, 0);
+  const totalScans = data.campaigns.reduce((sum, campaign) => sum + campaign.totalScans, 0);
+  const activeCampaigns = data.campaigns.filter((campaign) => campaign.status === "active").length;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -58,25 +79,19 @@ const AdminCampaignsList = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Campaigns</div>
-            <div className="text-3xl font-bold text-card-foreground">{campaigns.length}</div>
+            <div className="text-3xl font-bold text-card-foreground">{data.campaigns.length}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Active Campaigns</div>
-            <div className="text-3xl font-bold text-success">
-              {campaigns.filter(c => c.status === "active").length}
-            </div>
+            <div className="text-3xl font-bold text-success">{activeCampaigns}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Tags</div>
-            <div className="text-3xl font-bold text-accent">
-              {campaigns.reduce((sum, c) => sum + c.tags, 0).toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-accent">{totalTags.toLocaleString()}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Scans</div>
-            <div className="text-3xl font-bold text-primary">
-              {campaigns.reduce((sum, c) => sum + c.scans, 0).toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-primary">{totalScans.toLocaleString()}</div>
           </Card>
         </div>
 
@@ -110,7 +125,7 @@ const AdminCampaignsList = () => {
               </TableHeader>
               <TableBody>
                 {filteredCampaigns.map((campaign) => (
-                  <TableRow 
+                  <TableRow
                     key={campaign.id}
                     className="cursor-pointer"
                     onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}
@@ -118,16 +133,14 @@ const AdminCampaignsList = () => {
                     <TableCell className="font-semibold">{campaign.name}</TableCell>
                     <TableCell className="text-muted-foreground">{campaign.client}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusColor(campaign.status)}>
-                        {campaign.status}
-                      </Badge>
+                      <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
                     </TableCell>
-                    <TableCell>{campaign.tags.toLocaleString()}</TableCell>
-                    <TableCell className="font-medium">{campaign.scans.toLocaleString()}</TableCell>
+                    <TableCell>{campaign.totalTags.toLocaleString()}</TableCell>
+                    <TableCell className="font-medium">{campaign.totalScans.toLocaleString()}</TableCell>
                     <TableCell className="text-muted-foreground">{campaign.created}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();

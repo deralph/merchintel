@@ -1,39 +1,60 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { Plus, Search, Building2 } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const AdminClientsList = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Mock clients data
-  const clients = [
-    { id: "client-1", name: "Acme Corp", email: "admin@acme.com", status: "active", campaigns: 5, totalTags: 3200, mrr: 1200, joinDate: "2024-03-15" },
-    { id: "client-2", name: "Brand X Inc", email: "contact@brandx.com", status: "active", campaigns: 3, totalTags: 1800, mrr: 800, joinDate: "2024-06-20" },
-    { id: "client-3", name: "Festival Co", email: "info@festivalco.com", status: "active", campaigns: 8, totalTags: 5400, mrr: 2400, joinDate: "2024-01-10" },
-    { id: "client-4", name: "Startup Labs", email: "hello@startuplabs.io", status: "trial", campaigns: 1, totalTags: 300, mrr: 0, joinDate: "2025-01-05" },
-    { id: "client-5", name: "Global Events", email: "admin@globalevents.com", status: "active", campaigns: 12, totalTags: 8900, mrr: 3600, joinDate: "2023-11-22" },
-    { id: "client-6", name: "TechCon", email: "team@techcon.com", status: "paused", campaigns: 2, totalTags: 600, mrr: 0, joinDate: "2024-09-14" },
-  ];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-clients"],
+    queryFn: api.getAdminClients,
+  });
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredClients = useMemo(() => {
+    if (!data?.clients) {
+      return [];
+    }
+
+    const query = searchQuery.toLowerCase();
+    return data.clients.filter(
+      (client) => client.name.toLowerCase().includes(query) || client.email.toLowerCase().includes(query),
+    );
+  }, [data, searchQuery]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "default";
-      case "trial": return "secondary";
-      case "paused": return "outline";
-      default: return "secondary";
+      case "active":
+        return "default";
+      case "trial":
+        return "secondary";
+      case "paused":
+        return "outline";
+      default:
+        return "secondary";
     }
   };
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading clients" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load client list." onRetry={() => refetch()} />;
+  }
+
+  const totalTags = data.clients.reduce((sum, client) => sum + client.totalTags, 0);
+  const totalMRR = data.clients.reduce((sum, client) => sum + client.mrr, 0);
+  const activeClients = data.clients.filter((client) => client.status === "active").length;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -61,25 +82,19 @@ const AdminClientsList = () => {
               <Building2 className="w-5 h-5 text-primary" />
               <div className="text-sm text-muted-foreground">Total Clients</div>
             </div>
-            <div className="text-3xl font-bold text-card-foreground">{clients.length}</div>
+            <div className="text-3xl font-bold text-card-foreground">{data.clients.length}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-2">Active</div>
-            <div className="text-3xl font-bold text-success">
-              {clients.filter(c => c.status === "active").length}
-            </div>
+            <div className="text-3xl font-bold text-success">{activeClients}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-2">Total MRR</div>
-            <div className="text-3xl font-bold text-primary">
-              ${clients.reduce((sum, c) => sum + c.mrr, 0).toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-primary">${totalMRR.toLocaleString()}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-2">Total Tags</div>
-            <div className="text-3xl font-bold text-accent">
-              {clients.reduce((sum, c) => sum + c.totalTags, 0).toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-accent">{totalTags.toLocaleString()}</div>
           </Card>
         </div>
 
@@ -114,7 +129,7 @@ const AdminClientsList = () => {
               </TableHeader>
               <TableBody>
                 {filteredClients.map((client) => (
-                  <TableRow 
+                  <TableRow
                     key={client.id}
                     className="cursor-pointer"
                     onClick={() => navigate(`/admin/clients/${client.id}`)}
@@ -122,19 +137,15 @@ const AdminClientsList = () => {
                     <TableCell className="font-semibold">{client.name}</TableCell>
                     <TableCell className="text-muted-foreground">{client.email}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusColor(client.status)}>
-                        {client.status}
-                      </Badge>
+                      <Badge variant={getStatusColor(client.status)}>{client.status}</Badge>
                     </TableCell>
                     <TableCell>{client.campaigns}</TableCell>
                     <TableCell className="font-medium">{client.totalTags.toLocaleString()}</TableCell>
-                    <TableCell className="font-medium text-primary">
-                      ${client.mrr.toLocaleString()}
-                    </TableCell>
+                    <TableCell className="font-medium text-primary">${client.mrr.toLocaleString()}</TableCell>
                     <TableCell className="text-muted-foreground">{client.joinDate}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();

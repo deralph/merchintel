@@ -1,52 +1,68 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { ArrowLeft, Download, ExternalLink, Search, Filter } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const AdminCampaignDetail = () => {
-  const { campaignId } = useParams();
+  const { campaignId } = useParams<{ campaignId: string }>();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Mock campaign data
-  const campaign = {
-    id: campaignId,
-    name: "Summer Festival 2025",
-    client: "Acme Corp",
-    description: "Annual music festival merchandise tracking campaign with exclusive branded items",
-    destinationUrl: "https://acmefestival.com/promo",
-    startDate: "2025-06-01",
-    endDate: "2025-08-31",
-    status: "active",
-    totalTags: 1500,
-    emailConsent: true,
-    locationConsent: true,
-  };
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-campaign", campaignId],
+    queryFn: () => api.getAdminCampaignDetail(campaignId ?? ""),
+    enabled: Boolean(campaignId),
+  });
 
-  // Mock tags data
-  const tags = [
-    { uid: "TAG-A1B2C3D4", material: "Baseball Cap", description: "Black cap with embroidered logo", sequence: 1, status: "active", claimed: false, scans: 47 },
-    { uid: "TAG-E5F6G7H8", material: "T-Shirt", description: "White cotton tee, size L", sequence: 2, status: "active", claimed: true, scans: 23 },
-    { uid: "TAG-I9J0K1L2", material: "Tote Bag", description: "Canvas tote with screen print", sequence: 3, status: "active", claimed: true, scans: 89 },
-    { uid: "TAG-M3N4O5P6", material: "Water Bottle", description: "Insulated stainless steel", sequence: 4, status: "active", claimed: false, scans: 12 },
-    { uid: "TAG-Q7R8S9T0", material: "Hoodie", description: "Gray pullover hoodie, size M", sequence: 5, status: "active", claimed: true, scans: 56 },
-    { uid: "TAG-U1V2W3X4", material: "Baseball Cap", description: "Navy cap with patch logo", sequence: 6, status: "active", claimed: false, scans: 8 },
-    { uid: "TAG-Y5Z6A7B8", material: "T-Shirt", description: "Black cotton tee, size M", sequence: 7, status: "disabled", claimed: false, scans: 0 },
-    { uid: "TAG-C9D0E1F2", material: "Sticker Pack", description: "Set of 10 vinyl stickers", sequence: 8, status: "active", claimed: true, scans: 134 },
-  ];
+  const filteredTags = useMemo(() => {
+    if (!data?.tags) {
+      return [];
+    }
 
-  const filteredTags = tags.filter(tag => 
-    tag.uid.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tag.material.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tag.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const query = searchQuery.toLowerCase();
+    return data.tags.filter((tag) =>
+      tag.uid.toLowerCase().includes(query) ||
+      tag.material.toLowerCase().includes(query) ||
+      tag.description.toLowerCase().includes(query),
+    );
+  }, [data, searchQuery]);
 
-  const handleExportCSV = () => {
-    console.log("Exporting tags to CSV...");
+  if (!campaignId) {
+    return <ErrorScreen message="Campaign ID is missing from the URL." />;
+  }
+
+  if (isLoading) {
+    return <LoadingScreen message="Loading campaign details" />;
+  }
+
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load campaign details." onRetry={() => refetch()} />;
+  }
+
+  const { campaign, tags } = data;
+  const activeTags = tags.filter((tag) => tag.status === "active").length;
+  const claimedTags = tags.filter((tag) => tag.claimed).length;
+  const totalScans = tags.reduce((sum, tag) => sum + tag.scans, 0);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "default";
+      case "disabled":
+        return "secondary";
+      case "pending":
+        return "outline";
+      default:
+        return "secondary";
+    }
   };
 
   return (
@@ -64,14 +80,14 @@ const AdminCampaignDetail = () => {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
-                <Badge variant={campaign.status === "active" ? "default" : "secondary"}>
-                  {campaign.status}
-                </Badge>
+                <Badge variant={campaign.status === "active" ? "default" : "secondary"}>{campaign.status}</Badge>
               </div>
-              <p className="text-muted-foreground">Client: {campaign.client} • Campaign ID: {campaignId}</p>
+              <p className="text-muted-foreground">
+                Client: {campaign.client} • Campaign ID: {campaignId}
+              </p>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Button variant="outline" size="sm" onClick={() => console.info("Export tags")}> 
                 <Download className="w-4 h-4 mr-2" />
                 Export All Tags
               </Button>
@@ -92,15 +108,15 @@ const AdminCampaignDetail = () => {
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Active Tags</div>
-            <div className="text-3xl font-bold text-success">{tags.filter(t => t.status === "active").length}</div>
+            <div className="text-3xl font-bold text-success">{activeTags}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Claimed</div>
-            <div className="text-3xl font-bold text-accent">{tags.filter(t => t.claimed).length}</div>
+            <div className="text-3xl font-bold text-accent">{claimedTags}</div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-muted-foreground mb-1">Total Scans</div>
-            <div className="text-3xl font-bold text-primary">{tags.reduce((sum, t) => sum + t.scans, 0)}</div>
+            <div className="text-3xl font-bold text-primary">{totalScans}</div>
           </Card>
         </div>
 
@@ -121,7 +137,9 @@ const AdminCampaignDetail = () => {
             </div>
             <div>
               <div className="text-sm text-muted-foreground mb-1">Campaign Duration</div>
-              <div className="text-card-foreground">{campaign.startDate} to {campaign.endDate}</div>
+              <div className="text-card-foreground">
+                {campaign.startDate} to {campaign.endDate}
+              </div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground mb-1">Data Collection</div>
@@ -165,10 +183,10 @@ const AdminCampaignDetail = () => {
                   <TableHead>Tag UID</TableHead>
                   <TableHead>Material</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Sequence</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Claimed</TableHead>
-                  <TableHead className="text-right">Scans</TableHead>
+                  <TableHead>Scans</TableHead>
+                  <TableHead>Last Scan</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -178,11 +196,8 @@ const AdminCampaignDetail = () => {
                     <TableCell className="font-mono text-sm">{tag.uid}</TableCell>
                     <TableCell className="font-medium">{tag.material}</TableCell>
                     <TableCell className="text-muted-foreground">{tag.description}</TableCell>
-                    <TableCell className="text-muted-foreground">#{tag.sequence}</TableCell>
                     <TableCell>
-                      <Badge variant={tag.status === "active" ? "default" : "secondary"}>
-                        {tag.status}
-                      </Badge>
+                      <Badge variant={getStatusColor(tag.status)}>{tag.status}</Badge>
                     </TableCell>
                     <TableCell>
                       {tag.claimed ? (
@@ -193,7 +208,8 @@ const AdminCampaignDetail = () => {
                         <Badge variant="outline">Unclaimed</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-medium">{tag.scans}</TableCell>
+                    <TableCell className="font-medium">{tag.scans}</TableCell>
+                    <TableCell className="text-muted-foreground">{tag.lastScan}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm">
                         View

@@ -1,47 +1,34 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import LoadingScreen from "@/components/LoadingScreen";
+import ErrorScreen from "@/components/ErrorScreen";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { DollarSign, TrendingUp, CreditCard, Users, Download } from "lucide-react";
-import { useState } from "react";
+import { api } from "@/lib/api";
 
 const AdminRevenue = () => {
   const [dateRange, setDateRange] = useState("12m");
 
-  // Mock revenue data
-  const monthlyRevenue = [
-    { month: "Jan", revenue: 18400, clients: 42 },
-    { month: "Feb", revenue: 19200, clients: 43 },
-    { month: "Mar", revenue: 20100, clients: 45 },
-    { month: "Apr", revenue: 21800, clients: 46 },
-    { month: "May", revenue: 22400, clients: 47 },
-    { month: "Jun", revenue: 23200, clients: 48 },
-    { month: "Jul", revenue: 24100, clients: 49 },
-    { month: "Aug", revenue: 25600, clients: 51 },
-    { month: "Sep", revenue: 26400, clients: 52 },
-    { month: "Oct", revenue: 27800, clients: 54 },
-    { month: "Nov", revenue: 28900, clients: 55 },
-    { month: "Dec", revenue: 30200, clients: 57 },
-  ];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-revenue"],
+    queryFn: api.getAdminRevenue,
+  });
 
-  const revenueByPlan = [
-    { plan: "Starter", revenue: 4800, clients: 24 },
-    { plan: "Professional", revenue: 16800, clients: 21 },
-    { plan: "Enterprise", revenue: 8600, clients: 12 },
-  ];
+  if (isLoading) {
+    return <LoadingScreen message="Loading revenue analytics" />;
+  }
 
-  const recentInvoices = [
-    { client: "Acme Corp", amount: 1200, date: "2025-01-15", status: "paid" },
-    { client: "Brand X Inc", amount: 800, date: "2025-01-14", status: "paid" },
-    { client: "Festival Co", amount: 2400, date: "2025-01-13", status: "paid" },
-    { client: "TechCon", amount: 600, date: "2025-01-12", status: "pending" },
-    { client: "Global Events", amount: 3600, date: "2025-01-11", status: "paid" },
-  ];
+  if (isError || !data) {
+    return <ErrorScreen message="Unable to load revenue data." onRetry={() => refetch()} />;
+  }
 
-  const currentMRR = 30200;
-  const previousMRR = 28900;
-  const mrrGrowth = ((currentMRR - previousMRR) / previousMRR * 100).toFixed(1);
+  const { currentMRR, previousMRR, payingClients, monthlyRevenue, revenueByPlan, recentInvoices } = data;
+  const mrrGrowth = previousMRR ? (((currentMRR - previousMRR) / previousMRR) * 100).toFixed(1) : "0.0";
+  const arpu = payingClients ? Math.round(currentMRR / payingClients) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -104,7 +91,7 @@ const AdminRevenue = () => {
               </div>
             </div>
             <div className="text-sm text-muted-foreground mb-1">Paying Clients</div>
-            <div className="text-3xl font-bold text-card-foreground">57</div>
+            <div className="text-3xl font-bold text-card-foreground">{payingClients}</div>
           </Card>
 
           <Card className="p-6">
@@ -114,7 +101,7 @@ const AdminRevenue = () => {
               </div>
             </div>
             <div className="text-sm text-muted-foreground mb-1">ARPU</div>
-            <div className="text-3xl font-bold text-card-foreground">${Math.round(currentMRR / 57)}</div>
+            <div className="text-3xl font-bold text-card-foreground">${arpu}</div>
           </Card>
         </div>
 
@@ -130,18 +117,12 @@ const AdminRevenue = () => {
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '0.5rem',
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  name="Revenue"
-                />
+                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} name="Revenue" />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -156,9 +137,9 @@ const AdminRevenue = () => {
                 <YAxis type="category" dataKey="plan" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '0.5rem',
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
                   }}
                 />
                 <Bar dataKey="revenue" fill="hsl(var(--accent))" />
@@ -183,21 +164,23 @@ const AdminRevenue = () => {
               </TableHeader>
               <TableBody>
                 {recentInvoices.map((invoice, i) => (
-                  <TableRow key={i}>
+                  <TableRow key={`${invoice.client}-${invoice.date}-${i}`}>
                     <TableCell className="font-medium">{invoice.client}</TableCell>
                     <TableCell className="font-semibold text-primary">${invoice.amount}</TableCell>
                     <TableCell className="text-muted-foreground">{invoice.date}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        invoice.status === 'paid' 
-                          ? 'bg-success/10 text-success' 
-                          : 'bg-warning/10 text-warning'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          invoice.status === "paid" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                        }`}
+                      >
                         {invoice.status}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">View</Button>
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
