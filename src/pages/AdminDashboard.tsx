@@ -24,7 +24,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-card-foreground">Resurge Admin Portal</h1>
+          <h1 className="text-2xl font-bold text-card-foreground">Merchly Admin Portal</h1>
           <nav className="flex items-center gap-6">
             <a href="/admin/clients" className="text-muted-foreground hover:text-card-foreground">
               Clients

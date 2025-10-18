@@ -29,7 +29,7 @@ const ComponentShowcase = () => {
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold text-foreground mb-4">Component Library</h1>
           <p className="text-lg text-muted-foreground">
-            Reusable UI components for MerchTrace platform
+            Reusable UI components for Merchly platform
           </p>
         </div>
 

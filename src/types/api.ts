@@ -1,6 +1,25 @@
 import type { IconName } from "@/lib/icon-map";
 import type { Tone } from "@/lib/style-maps";
 
+export interface LandingContentResponse {
+  hero: {
+    kicker: string;
+    headline: string;
+    subheading: string;
+    primaryCta: { label: string; href: string };
+    secondaryCta: { label: string; href: string };
+  };
+  metrics: Array<{ label: string; value: number | string }>;
+  features: Array<{ title: string; description: string }>;
+  timeline: Array<{ title: string; description: string }>;
+  testimonials: Array<{ quote: string; author: string }>;
+  cta: {
+    headline: string;
+    subheading: string;
+    primaryCta: { label: string; href: string };
+  };
+}
+
 export interface KpiMetric {
   id: string;
   label: string;
@@ -240,18 +259,30 @@ export interface CreateCampaignPayload {
   emailConsent: boolean;
 }
 
-export interface ScanEventPayload {
-  tag_uid: string;
-  client_slug?: string;
-  email?: string | null;
-  location_consent: boolean;
-  session_id: string | null;
-  timestamp?: string;
-  campaign_id?: string;
+export interface IssueScanLinkResponse {
+  token: string;
+  expiresAt: string;
+  redirectUrl: string;
 }
 
-export interface SessionPayload {
-  sessionId: string;
-  tagUid: string;
-  clientSlug?: string;
+export interface ScanSessionResponse {
+  sessionToken: string;
+  status: "issued" | "active" | "completed";
+  expiresAt: string;
+  tag: {
+    uid: string;
+    brand: string;
+    campaign: string;
+    description: string;
+    material: string;
+    redirectUrl: string;
+    logo: string | null;
+  };
+}
+
+export interface CompleteScanPayload {
+  email: string;
+  emailConsent: boolean;
+  locationConsent?: boolean;
+  metadata?: Record<string, unknown>;
 }
