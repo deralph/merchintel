@@ -1,268 +1,217 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircle2, MapPin, Mail, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { TagExperienceResponse } from "@/types/api";
+import type { CompleteScanPayload } from "@/types/api";
+
+const useSessionToken = () => {
+  const location = useLocation();
+  return useMemo(() => new URLSearchParams(location.search).get("session"), [location.search]);
+};
 
 const ScanGateway = () => {
-  const { clientSlug, tag_uid } = useParams();
-  const [showConsent, setShowConsent] = useState(true);
+  const { tag_uid } = useParams();
+  const token = useSessionToken();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [locationConsent, setLocationConsent] = useState(false);
   const [emailConsent, setEmailConsent] = useState(false);
+  const [locationConsent, setLocationConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [tagData, setTagData] = useState<TagExperienceResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isClaimed, setIsClaimed] = useState(false);
-  const sessionIdRef = useRef<string | null>(null);
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch tag data and start heartbeat
   useEffect(() => {
-    const fetchTagData = async () => {
-      try {
-        if (!tag_uid) {
-          setError("Tag identifier missing");
-          setLoading(false);
-          return;
-        }
-
-        const tagExperience = await api.getTagExperience(tag_uid, clientSlug);
-
-        setTagData(tagExperience);
-        setIsClaimed(tagExperience.is_claimed);
-        setLoading(false);
-
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        sessionIdRef.current = sessionId;
-        await api.startSession({ sessionId, tagUid: tag_uid, clientSlug });
-
-        heartbeatIntervalRef.current = setInterval(() => {
-          if (sessionIdRef.current) {
-            api.heartbeat(sessionIdRef.current).catch(() => {
-              // best-effort heartbeat
-            });
-          }
-        }, 10000);
-      } catch (err) {
-        console.error(err);
-        setError("Tag not found or invalid");
-        setLoading(false);
-      }
-    };
-
-    fetchTagData();
-
-    // Cleanup heartbeat on unmount
-    return () => {
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
-    };
-  }, [clientSlug, tag_uid]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!emailConsent) {
-      toast.error("Please provide email consent to continue");
-      return;
+    if (!token) {
+      toast.warning("You need to tap the NFC tag again to unlock this look.");
     }
+  }, [token]);
 
-    // Stop heartbeat
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-
-    try {
-      await api.recordScanEvent({
-        tag_uid: tag_uid ?? "",
-        client_slug: clientSlug,
-        email: emailConsent ? email : null,
-        location_consent: locationConsent,
-        session_id: sessionIdRef.current,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (submissionError) {
-      toast.error("We couldn't record your scan. Please try again.");
-      console.error(submissionError);
-      return;
-    }
-
-    setSubmitted(true);
-    setShowConsent(false);
-
-    // Redirect after 2 seconds
-    setTimeout(() => {
-      if (tagData) {
-        window.location.href = tagData.redirect_url;
+  const sessionQuery = useQuery({
+    queryKey: ["scan-session", token],
+    enabled: Boolean(token),
+    queryFn: () => {
+      if (!token) {
+        throw new Error("Missing scan token");
       }
-    }, 2000);
+      return api.consumeScanSession(token);
+    },
+    retry: false,
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async (payload: CompleteScanPayload) => {
+      if (!token) {
+        throw new Error("Missing scan token");
+      }
+      return api.completeScanSession(token, payload);
+    },
+    onSuccess: (response) => {
+      setSubmitted(true);
+      toast.success("Scan captured. Redirecting you to the drop…");
+      setTimeout(() => {
+        window.location.href = response.redirectUrl;
+      }, 2000);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "We couldn't save that scan. Please tap again.");
+    },
+  });
+
+  const handleRescan = () => {
+    navigate("/", { replace: true });
   };
 
-  if (loading) {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!emailConsent) {
+      toast.error("Email consent is required to unlock the experience.");
+      return;
+    }
+
+    const payload: CompleteScanPayload = {
+      email,
+      emailConsent,
+      locationConsent,
+    };
+
+    completeMutation.mutate(payload);
+  };
+
+  if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center">
-          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-card-foreground mb-2">Tag Not Found</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <a href="/" className="text-primary hover:text-primary-hover underline">
-            Return to Home
-          </a>
-        </Card>
-      </div>
-    );
-  }
-
-  if (isClaimed) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center">
-          <AlertCircle className="w-16 h-16 text-accent mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-card-foreground mb-2">Already Claimed</h2>
-          <p className="text-muted-foreground mb-6">
-            This item has already found its home! If you think this is an error, please contact support.
-          </p>
-          <a href="/" className="text-primary hover:text-primary-hover underline">
-            Scan Another Item
-          </a>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-      <Card className="max-w-md w-full p-8 text-center animate-scale-in shadow-xl border border-border bg-card">
-        {/* Campaign Branding */}
-        <div className="mb-6">
-          <img
-            src={tagData.logo}
-            alt={tagData.brand}
-            className="w-20 h-20 rounded-full mx-auto mb-4 object-cover ring-4 ring-primary/20"
-          />
-          <h1 className="text-2xl font-bold text-card-foreground mb-2">{tagData.brand}</h1>
-          <p className="text-muted-foreground">{tagData.campaign_name}</p>
-          <p className="text-xs text-muted-foreground mt-1">Material: {tagData.material}</p>
-        </div>
-
-        {!submitted ? (
-          <>
-            <p className="text-card-foreground mb-6">{tagData.description}</p>
-            <Button
-              onClick={() => setShowConsent(true)}
-              size="lg"
-              className="w-full bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg"
-            >
-              Continue to Experience
-            </Button>
-            <p className="text-xs text-muted-foreground mt-4">
-              Tag ID: {tag_uid}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              💡 Tip: Use the same email for all your merch to track your collection!
-            </p>
-          </>
-        ) : (
-          <div className="py-8 animate-fade-in">
-            <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-card-foreground mb-2">Success!</h2>
-            <p className="text-muted-foreground mb-4">
-              Your scan has been recorded. Redirecting you now...
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4 py-16">
+        <Card className="max-w-md w-full bg-[#0B0B0B]/80 border border-[#E6E2DC]/20 text-[#F6F5F3] p-10 space-y-6">
+          <AlertCircle className="w-14 h-14 text-[#D94F2F] mx-auto" />
+          <div className="space-y-3 text-center">
+            <h1 className="text-3xl font-serif tracking-tight">Tap required</h1>
+            <p className="text-sm text-[#E6E2DC]/70">
+              This garment story opens only with a fresh NFC tap. Bring your device to the tag to relive the experience.
             </p>
           </div>
-        )}
+          <Button onClick={handleRescan} variant="secondary" className="bg-[#F2EFEA] text-[#0B0B0B] hover:bg-[#E6E2DC]">
+            Return home
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (sessionQuery.isError) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4 py-16">
+        <Card className="max-w-md w-full bg-[#0B0B0B]/80 border border-[#E6E2DC]/20 text-[#F6F5F3] p-10 space-y-6">
+          <AlertCircle className="w-14 h-14 text-[#D94F2F] mx-auto" />
+          <div className="space-y-3 text-center">
+            <h1 className="text-3xl font-serif tracking-tight">Session expired</h1>
+            <p className="text-sm text-[#E6E2DC]/70">
+              The secure link tied to this tag has already been opened or expired. Tap the merch again to continue.
+            </p>
+          </div>
+          <Button onClick={handleRescan} variant="secondary" className="bg-[#F2EFEA] text-[#0B0B0B] hover:bg-[#E6E2DC]">
+            Start over
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (sessionQuery.isLoading || !sessionQuery.data) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] flex flex-col items-center justify-center text-[#F6F5F3] space-y-6">
+        <div className="w-16 h-16 rounded-full border-2 border-[#F2EFEA]/40 border-t-[#D94F2F] animate-spin" />
+        <p className="text-sm uppercase tracking-[0.4em] text-[#E6E2DC]/60">Authenticating scan</p>
+      </div>
+    );
+  }
+
+  const { tag, expiresAt } = sessionQuery.data;
+
+  return (
+    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4 py-16 text-[#F6F5F3]">
+      <Card className="w-full max-w-2xl bg-[#0B0B0B]/80 border border-[#E6E2DC]/20 p-10 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.7)]">
+        <div className="grid gap-10 md:grid-cols-[1.2fr,1fr]">
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#E6E2DC]/60">{tag.campaign}</p>
+              <h1 className="text-4xl font-serif tracking-tight">{tag.brand}</h1>
+              <p className="text-sm text-[#E6E2DC]/70 leading-relaxed">{tag.description}</p>
+            </div>
+            <div className="rounded-xl border border-[#E6E2DC]/15 bg-[#F2EFEA]/5 px-6 py-4 text-sm text-[#E6E2DC]/80">
+              <p className="font-medium text-[#F6F5F3]">Tag details</p>
+              <p>Material: {tag.material}</p>
+              <p>Session expires at {new Date(expiresAt).toLocaleTimeString()}</p>
+              {tag_uid && (
+                <p className="text-xs text-[#E6E2DC]/60 mt-2">Tag ID: {tag_uid}</p>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleRescan}
+              className="text-[#C9A66B] hover:text-[#F6F5F3] hover:bg-[#F2EFEA]/5"
+            >
+              Rescan merch
+            </Button>
+          </div>
+
+          <div className="bg-[#F2EFEA]/10 border border-[#E6E2DC]/20 rounded-2xl p-6 backdrop-blur-sm">
+            {!submitted ? (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm uppercase tracking-[0.25em] text-[#E6E2DC]/60">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="bg-[#0B0B0B] border-[#E6E2DC]/30 text-[#F6F5F3] placeholder:text-[#E6E2DC]/40"
+                  />
+                </div>
+
+                <div className="space-y-4 text-sm text-[#E6E2DC]/80">
+                  <label className="flex items-start space-x-3">
+                    <Checkbox checked={emailConsent} onCheckedChange={(value) => setEmailConsent(Boolean(value))} />
+                    <span>
+                      I consent to receive drops, collection stories, and exclusive invites tied to this merch.
+                    </span>
+                  </label>
+                  <label className="flex items-start space-x-3">
+                    <Checkbox checked={locationConsent} onCheckedChange={(value) => setLocationConsent(Boolean(value))} />
+                    <span>Share my approximate location for limited-run insights.</span>
+                  </label>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={completeMutation.isPending}
+                  className="w-full bg-[#D94F2F] hover:bg-[#c24629] text-[#F6F5F3]"
+                >
+                  {completeMutation.isPending ? "Saving…" : "Unlock the experience"}
+                </Button>
+
+                <p className="text-xs text-[#E6E2DC]/60 text-center">
+                  This link closes after use. Bookmarking won&apos;t work—keep the NFC tag close when you want to return.
+                </p>
+              </form>
+            ) : (
+              <div className="text-center space-y-4 py-10">
+                <CheckCircle2 className="w-14 h-14 text-[#C9A66B] mx-auto" />
+                <div className="space-y-2">
+                  <p className="text-xl font-serif">Captured</p>
+                  <p className="text-sm text-[#E6E2DC]/70">Hold tight while we whisk you to the exclusive content.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
-
-      {/* Consent Modal */}
-      <Dialog open={showConsent} onOpenChange={setShowConsent}>
-        <DialogContent className="sm:max-w-md bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-card-foreground">Data Consent</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              We'd like to collect some information to personalize your experience and improve our campaigns.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-card-foreground mb-2">
-                Email Address
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="bg-background"
-                required={emailConsent}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="email-consent"
-                  checked={emailConsent}
-                  onCheckedChange={(checked) => setEmailConsent(checked as boolean)}
-                  className="mt-1"
-                />
-                <label htmlFor="email-consent" className="text-sm text-card-foreground leading-relaxed cursor-pointer">
-                  <Mail className="w-4 h-4 inline mr-1 text-primary" />
-                  I agree to receive updates about this campaign (required)
-                </label>
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="location-consent"
-                  checked={locationConsent}
-                  onCheckedChange={(checked) => setLocationConsent(checked as boolean)}
-                  className="mt-1"
-                />
-                <label htmlFor="location-consent" className="text-sm text-card-foreground leading-relaxed cursor-pointer">
-                  <MapPin className="w-4 h-4 inline mr-1 text-primary" />
-                  Share approximate location for regional insights (optional)
-                </label>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-border">
-              <Button 
-                type="submit" 
-                className="w-full bg-accent hover:bg-accent-hover text-accent-foreground"
-                disabled={!emailConsent}
-              >
-                Continue
-              </Button>
-              <p className="text-xs text-muted-foreground mt-3 text-center">
-                Your data is encrypted and never shared with third parties. See our{" "}
-                <a href="#" className="underline hover:text-card-foreground">Privacy Policy</a>.
-              </p>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

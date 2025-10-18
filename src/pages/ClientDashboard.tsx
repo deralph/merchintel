@@ -24,7 +24,7 @@ const ClientDashboard = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-card-foreground">Resurge Client Portal</h1>
+          <h1 className="text-2xl font-bold text-card-foreground">Merchly Client Portal</h1>
           <div className="flex items-center gap-4">
             <a href="/client/campaigns/create" className="text-primary hover:text-primary-hover font-medium">
               Create Campaign

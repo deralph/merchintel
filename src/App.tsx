@@ -19,6 +19,7 @@ import AdminCampaignsList from "./pages/AdminCampaignsList";
 import AdminTagsRegistry from "./pages/AdminTagsRegistry";
 import AdminRevenue from "./pages/AdminRevenue";
 import NotFound from "./pages/NotFound";
+import ComponentShowcase from "./pages/ComponentShowcase";
 
 const queryClient = new QueryClient();
 
@@ -31,9 +32,11 @@ const App = () => (
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
-          <Route path="/scan/:clientSlug/:tag_uid" element={<ScanGateway />} />
+          <Route path="/showcase" element={<ComponentShowcase />} />
+          <Route path="/scan" element={<ScanGateway />} />
           <Route path="/scan/:tag_uid" element={<ScanGateway />} />
-          
+          <Route path="/scan/:clientSlug/:tag_uid" element={<ScanGateway />} />
+
           {/* Client Portal Routes */}
           <Route path="/client/login" element={<ClientLogin />} />
           <Route path="/client/dashboard" element={<ClientDashboard />} />
@@ -41,7 +44,7 @@ const App = () => (
           <Route path="/client/campaigns" element={<ClientCampaignsList />} />
           <Route path="/client/campaigns/:campaignId" element={<CampaignDashboard />} />
           <Route path="/client/users" element={<ClientUsers />} />
-          
+
           {/* Admin Portal Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/clients" element={<AdminClientsList />} />
@@ -50,7 +53,7 @@ const App = () => (
           <Route path="/admin/campaigns/:campaignId" element={<AdminCampaignDetail />} />
           <Route path="/admin/tags" element={<AdminTagsRegistry />} />
           <Route path="/admin/revenue" element={<AdminRevenue />} />
-          
+
           {/* 404 Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>

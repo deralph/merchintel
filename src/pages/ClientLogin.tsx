@@ -32,7 +32,7 @@ const ClientLogin = () => {
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-card-foreground mb-2">Resurge</h1>
+          <h1 className="text-3xl font-bold text-card-foreground mb-2">Merchly</h1>
           <p className="text-muted-foreground">Client Portal Login</p>
         </div>
 

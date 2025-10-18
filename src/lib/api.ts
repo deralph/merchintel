@@ -11,9 +11,11 @@ import type {
   ClientDashboardResponse,
   ClientUsersResponse,
   CreateCampaignPayload,
-  ScanEventPayload,
-  SessionPayload,
+  IssueScanLinkResponse,
+  ScanSessionResponse,
+  CompleteScanPayload,
   TagExperienceResponse,
+  LandingContentResponse,
 } from "@/types/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
@@ -32,7 +34,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    let message = await response.text();
+    try {
+      const parsed = JSON.parse(message);
+      message = parsed.message ?? message;
+    } catch (error) {
+      // no-op: response was not JSON
+    }
     throw new Error(message || `Request failed with status ${response.status}`);
   }
 
@@ -44,6 +52,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
+  getLandingContent: () => request<LandingContentResponse>("/content/landing"),
   getClientDashboard: () => request<ClientDashboardResponse>("/client/dashboard"),
   getClientCampaigns: () => request<ClientCampaignsResponse>("/client/campaigns"),
   getClientCampaignDetail: (campaignId: string) => request<CampaignDetail>(`/client/campaigns/${campaignId}`),
@@ -62,11 +71,14 @@ export const api = {
   getTagExperience: (tagUid: string, clientSlug?: string) =>
     request<TagExperienceResponse>(`/tags/${tagUid}${clientSlug ? `?clientSlug=${clientSlug}` : ""}`),
 
-  startSession: (payload: SessionPayload) =>
-    request<{ status: string }>("/sessions", { method: "POST", body: JSON.stringify(payload) }),
-  heartbeat: (sessionId: string) => request<{ status: string }>(`/sessions/${sessionId}/heartbeat`, { method: "POST" }),
-  recordScanEvent: (payload: ScanEventPayload) =>
-    request<{ status: string }>("/events/scan", { method: "POST", body: JSON.stringify(payload) }),
+  issueScanLink: (tagUid: string, clientSlug?: string) =>
+    request<IssueScanLinkResponse>(`/tags/${tagUid}/scan-link${clientSlug ? `?clientSlug=${clientSlug}` : ""}`),
+  consumeScanSession: (token: string) => request<ScanSessionResponse>(`/scan-sessions/${token}`),
+  completeScanSession: (token: string, payload: CompleteScanPayload) =>
+    request<{ status: string; redirectUrl: string }>(`/scan-sessions/${token}/complete`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export type ApiClient = typeof api;
