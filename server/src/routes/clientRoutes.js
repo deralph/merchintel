@@ -1,17 +1,19 @@
+import { Router } from "express";
 import {
+  createClientCampaign,
+  getClientCampaignDetail,
   getClientDashboard,
   listClientCampaigns,
-  getClientCampaignDetail,
-  createClientCampaign,
   listClientUsers,
 } from "../controllers/clientController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const registerClientRoutes = (app) => {
-  app.get("/api/client/dashboard", getClientDashboard);
-  app.get("/api/client/campaigns", listClientCampaigns);
-  app.get("/api/client/campaigns/:campaignId", getClientCampaignDetail);
-  app.post("/api/client/campaigns", createClientCampaign);
-  app.get("/api/client/users", listClientUsers);
-};
+const router = Router();
 
-export default registerClientRoutes;
+router.get("/dashboard", asyncHandler(getClientDashboard));
+router.get("/campaigns", asyncHandler(listClientCampaigns));
+router.get("/campaigns/:campaignId", asyncHandler(getClientCampaignDetail));
+router.post("/campaigns", asyncHandler(createClientCampaign));
+router.get("/users", asyncHandler(listClientUsers));
+
+export default router;

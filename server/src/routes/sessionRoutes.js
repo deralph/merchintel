@@ -1,9 +1,15 @@
-import { completeScanSession, consumeScanSession, sessionStatus } from "../controllers/sessionController.js";
+import { Router } from "express";
+import {
+  completeScanSession,
+  consumeScanSession,
+  sessionStatus,
+} from "../controllers/sessionController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const registerSessionRoutes = (app) => {
-  app.get("/api/scan-sessions/:token", consumeScanSession);
-  app.post("/api/scan-sessions/:token/complete", completeScanSession);
-  app.get("/api/scan-sessions/:token/status", sessionStatus);
-};
+const router = Router();
 
-export default registerSessionRoutes;
+router.get("/:token", asyncHandler(consumeScanSession));
+router.post("/:token/complete", asyncHandler(completeScanSession));
+router.get("/:token/status", asyncHandler(sessionStatus));
+
+export default router;

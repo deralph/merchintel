@@ -1,11 +1,19 @@
-import { createTag, getTag, issueScanLink, listTags, redirectToScan } from "../controllers/tagController.js";
+import { Router } from "express";
+import {
+  createTag,
+  getTag,
+  issueScanLink,
+  listTags,
+  redirectToScan,
+} from "../controllers/tagController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const registerTagRoutes = (app) => {
-  app.get("/api/tags", listTags);
-  app.post("/api/tags", createTag);
-  app.get("/api/tags/:tagSlug/scan-link", issueScanLink);
-  app.get("/api/tags/:tagSlug/scan", redirectToScan);
-  app.get("/api/tags/:tagSlug", getTag);
-};
+const router = Router();
 
-export default registerTagRoutes;
+router.get("/", asyncHandler(listTags));
+router.post("/", asyncHandler(createTag));
+router.get("/:tagSlug/scan-link", asyncHandler(issueScanLink));
+router.get("/:tagSlug/scan", asyncHandler(redirectToScan));
+router.get("/:tagSlug", asyncHandler(getTag));
+
+export default router;
