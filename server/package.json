@@ -1,10 +1,10 @@
 {
-  "name": "trace-brand-nexus-server",
+  "name": "intelimerch-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node index.js",
+    "dev": "nodemon index.js",
     "start": "node index.js"
   },
   "dependencies": {
