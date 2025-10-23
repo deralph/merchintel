@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import dashboardMockup from "@mechhome-assets/dashboard-mockup.jpg";
+import dashboardMockup from "@/assets/dashboard-mockup.jpg";
 
 interface DashboardPreviewProps {
   onDemoClick: () => void;

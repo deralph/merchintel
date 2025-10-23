@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import heroImage from "@mechhome-assets/hero-image.jpg";
+import heroImage from "@/assets/hero-image.jpg";
 
 interface HeroProps {
   onDemoClick: () => void;

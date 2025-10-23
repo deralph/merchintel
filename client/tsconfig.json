@@ -15,7 +15,7 @@
         "./src/*"
       ],
       "@mechhome-assets/*": [
-        "../mechintel-home/src/assets/*"
+        "./src/assets/*"
       ]
     },
     "noImplicitAny": false,

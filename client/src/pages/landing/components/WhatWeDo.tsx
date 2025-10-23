@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
-import merchFlatlay from "@mechhome-assets/merch-flatlay.jpg";
-import nfcChipDetail from "@mechhome-assets/nfc-chip-detail.jpg";
-import toteBagStudio from "@mechhome-assets/tote-bag-studio.jpg";
-import festivalWristband from "@mechhome-assets/festival-wristband.jpg";
+import merchFlatlay from "@/assets/merch-flatlay.jpg";
+import nfcChipDetail from "@/assets/nfc-chip-detail.jpg";
+import toteBagStudio from "@/assets/tote-bag-studio.jpg";
+import festivalWristband from "@/assets/festival-wristband.jpg";
 
 export const WhatWeDo = () => {
   const sectionRef = useRef<HTMLElement>(null);

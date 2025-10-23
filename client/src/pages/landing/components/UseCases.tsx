@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import rooftopPortrait from "@mechhome-assets/rooftop-portrait.jpg";
-import capsStacked from "@mechhome-assets/caps-stacked.jpg";
-import bwEditorial from "@mechhome-assets/bw-editorial.jpg";
+import rooftopPortrait from "@/assets/rooftop-portrait.jpg";
+import capsStacked from "@/assets/caps-stacked.jpg";
+import bwEditorial from "@/assets/bw-editorial.jpg";
 
 const useCases = [
   {
