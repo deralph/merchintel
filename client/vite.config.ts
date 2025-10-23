@@ -16,7 +16,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@mechhome-assets": path.resolve(__dirname, "../mechintel-home/src/assets"),
     },
   },
 }));
