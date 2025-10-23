@@ -8,11 +8,15 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    fs: {
+      allow: [path.resolve(__dirname, "..")],
+    },
   },
   plugins: [react()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@mechhome-assets": path.resolve(__dirname, "../mechintel-home/src/assets"),
     },
   },
 }));
