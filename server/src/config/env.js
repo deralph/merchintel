@@ -19,7 +19,7 @@ const inferBackend = () => {
 const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 4000),
-  clientUrl: process.env.CLIENT_URL ?? "http://localhost:5173",
+  clientUrl: process.env.CLIENT_URL ?? "http://localhost:8080",
   dataBackend: inferBackend(),
   sessionTtlMinutes: Number(process.env.SESSION_TTL_MINUTES ?? 5),
   defaultClientId: process.env.DEFAULT_CLIENT_ID ?? "client-1",
