@@ -27,7 +27,8 @@ export const Hero = ({ onDemoClick }: HeroProps) => {
         style={{ transform: `translateY(${offsetY * 0.5}px)` }}
       >
         <img
-          src={heroImage}
+          // src={heroImage}
+          src={'https://readdy.ai/api/search-image?query=High-quality%20professional%20fashion%20photograph%20of%20a%20Nigerian%20model%20in%20a%20stylish%20pose%20scanning%20an%20NFC%20tag%20on%20a%20matte-black%20designer%20t-shirt.%20The%20model%20has%20a%20sophisticated%20expression%2C%20wearing%20minimal%20accessories.%20The%20background%20is%20simple%20and%20elegant%20with%20soft%20studio%20lighting%20creating%20a%20luxury%20atmosphere.%20The%20scene%20conveys%20modern%20technology%20meeting%20high%20fashion.%20The%20image%20has%20rich%20contrast%20and%20professional%20quality%20suitable%20for%20a%20luxury%20brand%20website.&width=1920&height=1080&seq=resurge1&orientation=landscape'}
           alt="Editorial street-style photo of young adults wearing branded merchandise, demonstrating NFC tap technology"
           className="h-full w-full object-cover"
           loading="eager"
