@@ -24,7 +24,8 @@ export const Hero = ({ onDemoClick }: HeroProps) => {
       <div
         ref={parallaxRef}
         className="parallax-element absolute inset-0"
-        style={{ transform: `translateY(${offsetY * 0.5}px)` }}
+        style={{ transform: `translateY(${offsetY * 0.5}px)`, 
+      }}  
       >
         <img
           // src={heroImage}
@@ -33,7 +34,8 @@ export const Hero = ({ onDemoClick }: HeroProps) => {
           className="h-full w-full object-cover"
           loading="eager"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent" />
+        {/* <div style={{background:"linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4))", height:'100%',width:"100%"}}/> */}
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/60 to-transparent" />
       </div>
 
       <div className="container relative mx-auto flex h-full items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8">

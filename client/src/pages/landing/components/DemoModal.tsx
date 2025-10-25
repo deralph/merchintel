@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,14 +33,39 @@ export const DemoModal = ({ open, onOpenChange }: DemoModalProps) => {
     event.preventDefault();
     setIsSubmitting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const scriptURL = "https://script.google.com/macros/s/AKfycbyFBEoCpaTEFTACqUx2IkF9yOIQ4u8A2j69E4LdRZO0qxxD_rn9DFdw2dwwCMgGWVbZ/exec"; // ← replace this
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    toast({
-      title: "Demo Request Submitted!",
-      description: "We'll contact you soon to schedule your demo.",
-    });
+    try {
+      const formData = new FormData();
+      formData.append("Email Address", email);
+      formData.append("Brand Name", brandName);
+      formData.append("Date", new Date().toISOString());
+
+      const response = await fetch(scriptURL, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // success
+      setIsSubmitted(true);
+      toast({
+        title: "Demo Request Submitted!",
+        description: "We'll contact you soon to schedule your demo.",
+      });
+    } catch (error) {
+      console.error("Error submitting form to Google Sheets:", error);
+      toast({
+        title: "Submission Failed",
+        description: "There was an issue submitting your request. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = (nextOpen: boolean) => {
@@ -51,7 +81,9 @@ export const DemoModal = ({ open, onOpenChange }: DemoModalProps) => {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">Request a Demo</DialogTitle>
+          <DialogTitle className="font-display text-2xl">
+            Request a Demo
+          </DialogTitle>
         </DialogHeader>
 
         {!isSubmitted ? (
@@ -101,11 +133,19 @@ export const DemoModal = ({ open, onOpenChange }: DemoModalProps) => {
         ) : (
           <div className="py-8 text-center">
             <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-primary" />
-            <h3 className="mb-2 text-xl font-display font-bold">Request Received!</h3>
+            <h3 className="mb-2 text-xl font-display font-bold">
+              Request Received!
+            </h3>
             <p className="editorial-text mb-6 text-muted-foreground">
-              Check your email for a calendar link to schedule your demo. We look forward to showing you how InteliMerch can transform your branded merchandise.
+              Check your email for a calendar link to schedule your demo. We
+              look forward to showing you how we can transform your branded
+              merchandise.
             </p>
-            <Button onClick={() => handleClose(false)} variant="outline" className="mx-auto">
+            <Button
+              onClick={() => handleClose(false)}
+              variant="outline"
+              className="mx-auto"
+            >
               Close
             </Button>
           </div>
